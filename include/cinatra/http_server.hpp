@@ -23,6 +23,8 @@ namespace cinatra {
 		T value;
 	};
 
+	typedef std::function<std::string(std::string)> StrFunc;
+
 	template<typename ScoketType, class service_pool_policy = io_service_pool>
 	class http_server_ : private noncopyable {
 	public:
@@ -264,6 +266,10 @@ namespace cinatra {
             on_conn_ = std::move(on_conn);
         }
 
+		void set_localize_function(StrFunc func){
+			str_func_ = std::move(func);
+		}
+
 	private:
 		void start_accept(std::shared_ptr<boost::asio::ip::tcp::acceptor> const& acceptor) {
 			auto new_conn = std::make_shared<connection<ScoketType>>(
@@ -318,6 +324,9 @@ namespace cinatra {
 					case cinatra::data_proc_state::data_begin:
 					{
 						std::string relative_file_name = req.get_relative_filename();
+						if(str_func_){
+							relative_file_name = str_func_(relative_file_name);
+						}
 						std::string fullpath = static_dir_ + relative_file_name;
 
 						auto mime = req.get_mime(relative_file_name);
@@ -546,6 +555,8 @@ namespace cinatra {
 		std::function<void(request& req, response& res)> not_found_ = nullptr;
 		std::function<void(request&, std::string&)> multipart_begin_ = nullptr;
         std::function<bool(std::shared_ptr<connection<ScoketType>>)> on_conn_ = nullptr;
+
+		StrFunc str_func_ = nullptr;
 
         size_t max_header_len_;
         check_header_cb check_headers_;
